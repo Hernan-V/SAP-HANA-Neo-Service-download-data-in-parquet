@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import json
+from hdbcli import dbapi
 
 # if __name__ == '__main__':
 import argparse
@@ -36,23 +37,24 @@ args = parser.parse_args()
 # Check which of the modes will be executed
 if args.mode == 'configure':
   # Validate the required arguments
-  if not args.config_dir
+  if not args.config_dir:
     parser.error("The --config_dir flag is required as the path to write the configuration files")
-  if not args.table or not args.table_schema
+  if not args.table or not args.table_schema:
     parser.error("Both --table and --table_schema flags are required to spacify for the configuration file creation")
-  if not args.limit_mode
+  if not args.limit_mode:
     parser.error("The --limit_mode flag must be specified")
+
 
 elif args.mode == 'download':
   # Validate the required arguments
-  if not args.config_dir and (not args.table or not args.table_schema)
+  if not args.config_dir and (not args.table or not args.table_schema):
     parser.error("Either the --config_dir flag or the --table and --table_schema must be specified")
-  if not args.config_dir and (not args.limit_mode or not args.limit_num)
+  if not args.config_dir and (not args.limit_mode or not args.limit_num):
     parser.error("Either the --config_dir flag or the --limit_mode and --limit_num must be specified")
-  if not args.config_dir and (not args.download_dir or not args.download_mode)
+  if not args.config_dir and (not args.download_dir or not args.download_mode):
     parser.error("The --download_dir and --download_mode must be specified")
 
-if args.null_treatment
+if args.null_treatment:
   try:
     # Try to load JSON from string
     null_json = json.loads(args.json)
@@ -82,4 +84,5 @@ if args.null_treatment
     null_const = fields['null_const']
     nulls = fields['nulls']
     for null_regex in nulls:
-      if null_regex regex 'lalala'
+      if null_regex regex 'lalala':
+        exit()
