@@ -18,12 +18,22 @@ import os
 from hana_ml import dataframe as hd
 
 
-def convert_to_bytes(size: int, unit: object) -> object:
+def convert_to_bytes(size: int, unit: str) -> int:
   units = dict(B=1, KB=1024, MB=1024 ** 2, GB=1024 ** 3, TB=1024 ** 4)
   return size * units[unit.upper()]
 
 
-def execute_configuration(config, **kwargs)
+def calculate_max_record_batch(ConnectionContext: hd.ConnectionContext, **kwargs) -> int:
+  table_size = ConnectionContext.sql(
+    f'SELECT RECORD_COUNT, TABLE_SIZE FROM SYS.M_TABLES WHERE SCHEMA_NAME = {kwargs["table_schema"]} AND TABLE_NAME = {kwargs["table"]}')
+  if "limit_mode" in kwargs and kwargs["limit_mode"] == 'records':
+    return args.limit_num
+  else:
+    byte_size = convert_to_bytes(kwargs["limit_num"], kwargs["limit_mode"])
+    return (byte_size * table_size[0]) // table_size[1]
+
+
+def execute_configuration(config, **kwargs):
 # Create the directory if it doesn't exist
   os.makedirs(os.path.dirname(args.config_dir), exist_ok=True)
 
@@ -33,6 +43,7 @@ def execute_configuration(config, **kwargs)
       user=os.getenv('SAP_HANA_USER'),
       password=os.getenv('SAP_HANA_PASSWORD')
   )
+  record_size = calculate_max_record_batch(cc, **kwargs)
 
   try:
     for table_data in config:
@@ -41,7 +52,13 @@ def execute_configuration(config, **kwargs)
         table = table_data['table']
       elif 'table' in kwargs and kwargs['table']:
         table = kwargs['table']
+      # Retrieve table schema name from config file if exist or from script argument
+      if 'table_schema' in table_data and table_data['table_schema']:
+        table_schema = table_data['table_schema']
+      elif 'table_schema' in kwargs and kwargs['table_schema']:
+        table_schema = kwargs['table_schema']
 
+    table_fields = cc.sql(f'SELECT {field_list} FROM "{args.table_schema}"."{args.table}" {where_clause}')
   finally:
     cc.close()
 
@@ -87,15 +104,9 @@ if args.mode == 'configure':
   )
 
   try:
+    config_file_name = f'config_{args.table_schema}_{args.table}'
     # Calculate the record size
-    table_size = cc.sql(f'SELECT RECORD_COUNT, TABLE_SIZE FROM SYS.M_TABLES WHERE SCHEMA_NAME = {args.table_schema} AND TABLE_NAME = {args.table}')
-    if args.limit_mode == 'records'
-      record_size = args.limit_num
-    else:
-      byte_size = convert_to_bytes(args.limit_num, args.limit_mode)
-      record_size = (byte_size * table_size[0]) // table_size[1]
-
-    #sql_statmnt = f'SELECT * FROM SYS.M_TABLES WHERE SCHEMA_NAME={args.table_schema} AND TABLE_NAME={args.table}'
+    record_size = calculate_max_record_batch(cc, **vars(args))
 
     # build the dictionary to download to configuration file
     config_file.append({})
@@ -137,7 +148,7 @@ if args.mode == 'configure':
     if args.download_dir:
       config_file[0]["directory"] = args.download_dir
     if args.download_mode:
-      config_file[0]["target"] = download_mode
+      config_file[0]["target"] = args.download_mode
 
     # add grouping
     if args.group:
@@ -150,7 +161,6 @@ if args.mode == 'configure':
         for name, value in zip(args.group, unique_key):
           if not 'grouping' in final_config[0]:
             final_config[0]['grouping'] = []
-            config_file_name = f'config_{args.table_schema}_{args.table}'
           final_config[0]["grouping"].append({"field": name, "value": value})
           config_file_name += f'_{name}-{value}'
         # save the result into a json file
@@ -187,4 +197,3 @@ elif args.mode == 'download':
       config = json.load(f)
       execute_configuration(config, **vars(args))
 
-  table_fields = cc.sql(f'SELECT {field_list} FROM "{args.table_schema}"."{args.table}" {where_clause}')
