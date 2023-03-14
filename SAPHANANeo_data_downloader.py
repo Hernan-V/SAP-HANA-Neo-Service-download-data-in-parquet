@@ -13,10 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import json
 import os
+from datetime import datetime
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from hana_ml import dataframe as hd
 
+
+def call_api_to_create_directory_on_an_existing_bucket():
+  var=1
 
 def convert_to_bytes(size: int, unit: str) -> int:
   units = dict(B=1, KB=1024, MB=1024 ** 2, GB=1024 ** 3, TB=1024 ** 4)
@@ -24,18 +32,24 @@ def convert_to_bytes(size: int, unit: str) -> int:
 
 
 def calculate_max_record_batch(ConnectionContext: hd.ConnectionContext, **kwargs) -> int:
-  table_size = ConnectionContext.sql(
-    f'SELECT RECORD_COUNT, TABLE_SIZE FROM SYS.M_TABLES WHERE SCHEMA_NAME = {kwargs["table_schema"]} AND TABLE_NAME = {kwargs["table"]}')
-  if "limit_mode" in kwargs and kwargs["limit_mode"] == 'records':
-    return args.limit_num
+  if not "limit_mode" in kwargs or not kwargs["limit_mode"] or not "limit_num" in kwargs or not kwargs["limit_num"]:
+    return 0
+  elif "limit_mode" in kwargs and kwargs["limit_mode"] == 'records':
+    return kwargs["limit_num"]
   else:
     byte_size = convert_to_bytes(kwargs["limit_num"], kwargs["limit_mode"])
+    table_size = ConnectionContext.sql(
+      f'SELECT RECORD_COUNT, TABLE_SIZE FROM SYS.M_TABLES WHERE SCHEMA_NAME = {kwargs["table_schema"]} AND TABLE_NAME = {kwargs["table"]}')
     return (byte_size * table_size[0]) // table_size[1]
 
+def check_arg_in_config_or_input(attribute :str, config_line, parser: argparse.ArgumentParser, message :str, **kwargs ):
+  if attribute in config_line and config_line[attribute]:
+    kwargs[attribute] = config_line[attribute]
+  elif attribute not in kwargs or not kwargs[attribute]:
+    parser.error(message)
+    exit()
 
-def execute_configuration(config, **kwargs):
-# Create the directory if it doesn't exist
-  os.makedirs(os.path.dirname(args.config_dir), exist_ok=True)
+def execute_configuration(config, parser: argparse.ArgumentParser, **kwargs):
 
   cc = hd.ConnectionContext(
       address=os.getenv('SAP_HANA_HOST'),
@@ -43,28 +57,130 @@ def execute_configuration(config, **kwargs):
       user=os.getenv('SAP_HANA_USER'),
       password=os.getenv('SAP_HANA_PASSWORD')
   )
-  record_size = calculate_max_record_batch(cc, **kwargs)
 
   try:
-    for table_data in config:
+    for config_line in config:
       # Retrieve table name from config file if exist or from script argument
-      if 'table' in table_data and table_data['table']:
-        table = table_data['table']
-      elif 'table' in kwargs and kwargs['table']:
-        table = kwargs['table']
+      check_arg_in_config_or_input('table', config_line, parser,
+                                   "Either the configuration file at --config_dir need attribute table or the --table and --table_schema must be specified",
+                                   **kwargs)
       # Retrieve table schema name from config file if exist or from script argument
-      if 'table_schema' in table_data and table_data['table_schema']:
-        table_schema = table_data['table_schema']
-      elif 'table_schema' in kwargs and kwargs['table_schema']:
-        table_schema = kwargs['table_schema']
+      check_arg_in_config_or_input('table_schema', config_line, parser,
+                                   "Either the configuration file at --config_dir need attribute table or the --table and --table_schema must be specified",
+                                   **kwargs)
+      # Check if the data will be download locally or on the cloud
+      check_arg_in_config_or_input('download_mode', config_line, parser,
+                                   "The --download_dir and --download_mode must be specified or the same attribute on configuration file at --config_dir",
+                                   **kwargs)
+      # Create the directory if it doesn't exist to dump the data
+      check_arg_in_config_or_input('download_dir', config_line, parser,
+                                   "The --download_dir and --download_mode must be specified or the same attribute on configuration file at --config_dir",
+                                   **kwargs)
+      if kwargs["download_mode"] == 'local':
+        os.makedirs(os.path.dirname(kwargs['download_dir']), exist_ok=True)
+      else:
+        call_api_to_create_directory_on_an_existing_bucket()
 
-    table_fields = cc.sql(f'SELECT {field_list} FROM "{args.table_schema}"."{args.table}" {where_clause}')
+      config_file_name = f'config_{kwargs["table_schema"]}_{kwargs["table"]}'
+
+      # Retrieve batch mode and size from config file if exist or from script argument
+      if "rec_size" in kwargs or kwargs["rec_size"]:
+        record_size = kwargs["rec_size"]
+      else:
+        record_size = calculate_max_record_batch(cc, **kwargs)
+
+      # Create the grouping as a where condition
+      where_clause = ""
+      for group in config_line['grouping']:
+        config_file_name += f'_{group["field"]}_{group["name"]}'
+        if len(where_clause) < 1:
+          where_clause = f"WHERE \"{group['field']}\" = \'{group['value']}\'"
+        else:
+          where_clause += f" AND \"{group['field']}\" = \'{group['value']}\'"
+
+      # Create the list of fields to retrieve
+      field_list = ""
+      keys = ""
+      for field_name, field_properties in config_line['fields'].items() :
+        if len(field_list) < 1:
+          field_list = f"\"{field_name}\""
+        else:
+          field_list += f" , \"{field_name}\""
+        # Populate the key fields
+          if isinstance(field_properties['key'], str):
+            if field_properties['key'].upper() == 'X':
+              if len(keys) < 1:
+                keys = f"\"{field_name}\""
+              else:
+                keys += f" , \"{field_name}\""
+      if len(keys) < 1:
+        keys = field_list
+
+      if record_size > 1:
+        offset = 0
+        table_df = pd.DataFrame()
+        while not table_df.empty:
+          table_df = cc.sql(
+            f'SELECT {field_list} FROM "{kwargs["table_schema"]}"."{kwargs["table"]}" {where_clause} ORDER BY {keys} LIMIT {record_size} OFFSET {offset}').collect()
+          # Data cleanse
+          for field_name, field_properties in config_line['fields'].items():
+            null_const = field_properties.get('null_const', None)
+            nulls = field_properties.get('nulls', [])
+            not_nulls = field_properties.get('not_nulls', [])
+
+            # replace all invalid values with a constant
+            if len(nulls) > 0 and null_const != None:
+              for null_value in nulls:
+                table_df[field_name] = table_df[field_name].replace(null_value, null_const, regex=True)
+            # replace all not valid values with a constant
+            if len(not_nulls) > 0 and null_const != None:
+              for not_null_value in not_nulls:
+                # negate the expression
+                not_null_value = '^((?!' + not_null_value + ').)*$'
+                table_df[field_name] = table_df[field_name].replace(not_null_value, null_const, regex=True)
+
+          # Convert dataframe to parquet
+          table = pa.Table.from_pandas(table_df)
+          # Write file data
+          if kwargs["download_mode"] == 'local':
+            pq.write_table(table, os.path.join(kwargs['download_dir'],
+                                               f"{config_file_name}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.json"),
+                           compression='snappy')
+          offset += record_size
+      else:
+        table_df = cc.sql(
+          f'SELECT {field_list} FROM "{kwargs["table_schema"]}"."{kwargs["table"]}" {where_clause} ORDER BY {keys}').collect()
+        #Data cleanse
+        for field_name, field_properties in config_line['fields'].items():
+          null_const = field_properties.get('null_const', None)
+          nulls = field_properties.get('nulls', [])
+          not_nulls = field_properties.get('not_nulls', [])
+
+          #replace all invalid values with a constant
+          if len(nulls) > 0 and null_const != None:
+            for null_value in nulls:
+              table_df[field_name] = table_df[field_name].replace(null_value, null_const, regex=True)
+          # replace all not valid values with a constant
+          if len(not_nulls) > 0 and null_const != None:
+            for not_null_value in not_nulls:
+              #negate the expression
+              not_null_value = '^((?!' + not_null_value + ').)*$'
+              table_df[field_name] = table_df[field_name].replace(not_null_value, null_const, regex=True)
+
+        #Convert dataframe to parquet
+        table = pa.Table.from_pandas(table_df)
+        #Write file data
+        if kwargs["download_mode"] == 'local':
+          pq.write_table(table, os.path.join(kwargs['download_dir'],
+                                             f"{config_file_name}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.json"),
+                         compression='snappy')
+
+
   finally:
     cc.close()
 
 
 # if __name__ == '__main__':
-import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('mode', type=str, required=True, choices=['download', 'configure'], help='Mode or action to run the program')
 parser.add_argument('--config_dir', '-cd', type=str, required=True, help='Directory where the configuration files are written or read it from')
@@ -90,8 +206,8 @@ if args.mode == 'configure':
     parser.error("The --config_dir flag is required as the path to write the configuration files")
   if not args.table or not args.table_schema:
     parser.error("Both --table and --table_schema flags are required to spacify for the configuration file creation")
-  if not args.limit_mode:
-    parser.error("The --limit_mode flag must be specified")
+  if (args.limit_num and not args.limit_mode) or (not args.limit_num and args.limit_mode):
+    parser.error("Both --limit_mode and --limit_num must be specified")
 
   # Create the directory if it doesn't exist
   os.makedirs(os.path.dirname(args.config_dir), exist_ok=True)
@@ -105,6 +221,8 @@ if args.mode == 'configure':
 
   try:
     config_file_name = f'config_{args.table_schema}_{args.table}'
+    cursor = cc.connection.cursor()
+
     # Calculate the record size
     record_size = calculate_max_record_batch(cc, **vars(args))
 
@@ -112,7 +230,8 @@ if args.mode == 'configure':
     config_file.append({})
     config_file[0]["schema"] = args.table_schema
     config_file[0]["table"] = args.table
-    config_file[0]["rec_size"] = record_size
+    if record_size and record_size > 0:
+      config_file[0]["rec_size"] = record_size
 
     # add fields
     if args.null_treatment:
@@ -124,7 +243,8 @@ if args.mode == 'configure':
         with open(args.json) as f:
           null_config = json.load(f)
 
-    table_fields = cc.sql(f'SELECT "COLUMN_NAME", "INDEX_TYPE", "DATA_TYPE_NAME", "LENGTH", "SCALE" FROM "SYS"."TABLE_COLUMNS" WHERE "TABLE_SCHEMA" = {args.table_schema} AND "TABLE_NAME" = {args.table} ORDER BY "POSITION"')
+    cursor.execute(f'SELECT "COLUMN_NAME", "INDEX_TYPE", "DATA_TYPE_NAME", "LENGTH", "SCALE" FROM "SYS"."TABLE_COLUMNS" WHERE "TABLE_SCHEMA" = {args.table_schema} AND "TABLE_NAME" = {args.table} ORDER BY "POSITION"')
+    table_fields = cursor.fetchall()
     if table_fields:
       config_file[0]["fields"] = {}
       for fields in table_fields:
@@ -146,16 +266,17 @@ if args.mode == 'configure':
 
     # add the rest of the info to dump the result data
     if args.download_dir:
-      config_file[0]["directory"] = args.download_dir
+      config_file[0]["download_dir"] = args.download_dir
     if args.download_mode:
-      config_file[0]["target"] = args.download_mode
+      config_file[0]["download_mode"] = args.download_mode
 
     # add grouping
     if args.group:
       group_fields_string = ','.join(['"' + item + '"' for item in args.group])
       #table_grouping_validation = cc.sql(f'SELECT SUM(EXCEED_LIMIT)*100/SUM(GRAND_TOTAL) FROM (SELECT {group_fields_string}, 1 AS GRAND_TOTAL, (CASE WHEN RECORD_COUNT > RECORD_LIMIT THEN 1 ELSE 0 END) AS EXCEED_LIMIT FROM (SELECT {group_fields_string}, COUNT(*) AS RECORD_COUNT, {record_size} AS RECORD_LIMIT FROM {args.table_schema}.{args.table} GROUP BY {group_fields_string}))')
       # Pop up message to validate if countinue or not
-      grouping_values = cc.sql(f'SELECT DISTINCT {group_fields_string} FROM {args.table_schema}.{args.table}')
+      cursor.execute(f'SELECT DISTINCT {group_fields_string} FROM {args.table_schema}.{args.table}')
+      grouping_values = cursor.fetchall()
       for unique_key in grouping_values:
         final_config = config_file
         for name, value in zip(args.group, unique_key):
@@ -173,6 +294,7 @@ if args.mode == 'configure':
         json.dump(config_file, f)
 
   finally:
+    cursor.close()
     cc.close()
 
 elif args.mode == 'download':
@@ -191,9 +313,9 @@ elif args.mode == 'download':
         file_path = os.path.join(args.config_dir, filename)
         with open(file_path) as f:
           config = json.load(f)
-          execute_configuration(config, **vars(args))
+          execute_configuration(config, parser, **vars(args))
   else:
     with open(args.config_dir) as f:
       config = json.load(f)
-      execute_configuration(config, **vars(args))
+      execute_configuration(config, parser, **vars(args))
 
