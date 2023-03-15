@@ -1,5 +1,4 @@
 argparse
-json
 pandas
 pyarrow
 hana_ml
