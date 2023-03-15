@@ -23,13 +23,22 @@ import pyarrow.parquet as pq
 from hana_ml import dataframe as hd
 
 
-def call_api_to_create_directory_on_an_existing_bucket():
-  var=1
+def create_directory_on_bucket():
+  # TODO: Implement the API call to create a directory on the cloud bucket
+  pass
 
 def convert_to_bytes(size: int, unit: str) -> int:
   units = dict(B=1, KB=1024, MB=1024 ** 2, GB=1024 ** 3, TB=1024 ** 4)
   return size * units[unit.upper()]
 
+def get_connection_context():
+  cc = hd.ConnectionContext(
+    address=os.getenv("SAP_HANA_HOST"),
+    port=os.getenv("SAP_HANA_PORT"),
+    user=os.getenv("SAP_HANA_USER"),
+    password=os.getenv("SAP_HANA_PASSWORD"),
+  )
+  return cc
 
 def calculate_max_record_batch(ConnectionContext: hd.ConnectionContext, **kwargs) -> int:
   if not "limit_mode" in kwargs or not kwargs["limit_mode"] or not "limit_num" in kwargs or not kwargs["limit_num"]:
@@ -51,12 +60,7 @@ def check_arg_in_config_or_input(attribute :str, config_line, parser: argparse.A
 
 def execute_configuration(config, parser: argparse.ArgumentParser, **kwargs):
 
-  cc = hd.ConnectionContext(
-      address=os.getenv('SAP_HANA_HOST'),
-      port=os.getenv('SAP_HANA_PORT'),
-      user=os.getenv('SAP_HANA_USER'),
-      password=os.getenv('SAP_HANA_PASSWORD')
-  )
+  cc = get_connection_context()
 
   try:
     for config_line in config:
@@ -79,7 +83,7 @@ def execute_configuration(config, parser: argparse.ArgumentParser, **kwargs):
       if kwargs["download_mode"] == 'local':
         os.makedirs(os.path.dirname(kwargs['download_dir']), exist_ok=True)
       else:
-        call_api_to_create_directory_on_an_existing_bucket()
+        create_directory_on_bucket()
 
       config_file_name = f'config_{kwargs["table_schema"]}_{kwargs["table"]}'
 
@@ -174,8 +178,6 @@ def execute_configuration(config, parser: argparse.ArgumentParser, **kwargs):
           pq.write_table(table, os.path.join(kwargs['download_dir'],
                                              f"{config_file_name}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.json"),
                          compression='snappy')
-
-
   finally:
     cc.close()
 
@@ -212,12 +214,7 @@ if args.mode == 'configure':
   # Create the directory if it doesn't exist
   os.makedirs(os.path.dirname(args.config_dir), exist_ok=True)
 
-  cc = hd.ConnectionContext(
-      address=os.getenv('SAP_HANA_HOST'),
-      port=os.getenv('SAP_HANA_PORT'),
-      user=os.getenv('SAP_HANA_USER'),
-      password=os.getenv('SAP_HANA_PASSWORD')
-  )
+  cc = get_connection_context()
 
   try:
     config_file_name = f'config_{args.table_schema}_{args.table}'
