@@ -9,16 +9,32 @@ from hana_ml import dataframe as hd
 
 
 def create_directory_on_bucket():
-    # TODO: Implement the API call to create a directory on the cloud bucket
+    """
+    TODO: Implement the API call to create a directory on the cloud bucket
+    """
     pass
 
 
 def convert_to_bytes(size: int, unit: str) -> int:
+    """
+    Converts size from unit to bytes
+    Args:
+        size (int): size to be converted
+        unit (str): unit of the size
+
+    Returns:
+        size (int): converted size to bytes
+    """
     units = dict(B=1, KB=1024, MB=1024 ** 2, GB=1024 ** 3, TB=1024 ** 4)
     return size * units[unit.upper()]
 
 
-def get_connection_context():
+def get_connection_context() -> hd.ConnectionContext:
+    """
+    Returns a connection context for HANA DB
+    Returns:
+        cc (hd.ConnectionContext): HANA DB connection context
+    """
     cc = hd.ConnectionContext(
         address=os.getenv("SAP_HANA_HOST"),
         port=os.getenv("SAP_HANA_PORT"),
@@ -29,6 +45,15 @@ def get_connection_context():
 
 
 def calculate_max_record_batch(cc: hd.ConnectionContext, args: argparse.Namespace) -> int:
+    """
+    Calculates the maximum record batch size
+    Args:
+        cc (hd.ConnectionContext): HANA DB connection context
+        args (argparse.Namespace): Arguments
+
+    Returns:
+        int: Maximum record batch size
+    """
     if not (args.limit_mode and args.limit_num):
         return 0
     elif args.limit_mode == "records":
@@ -43,6 +68,17 @@ def calculate_max_record_batch(cc: hd.ConnectionContext, args: argparse.Namespac
 
 
 def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dict, args: argparse.Namespace) -> None:
+    """
+    Parses the configuration file or command line arguments and validates required attributes.
+    Args:
+        config_line (dict): Configuration line
+        parser (argparse.ArgumentParser): Argument parser
+        tokens (dict): Tokens dictionary
+        args (argparse.Namespace): Arguments
+
+    Returns:
+        None
+    """
     required_attrs = [
         ("table", 'Either the configuration file at --config_dir needs the "table" attribute, or the --table and '
                   '--table_schema arguments must be specified'),
@@ -55,6 +91,7 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
                          'or the configuration file at --config_dir needs both the "download_dir" and "download_mode"'
                          ' attributes'),
     ]
+    # Validate required attributes
     for attr, error_msg in required_attrs:
         if attr in config_line and config_line[attr]:
             setattr(args, attr, config_line[attr])
@@ -62,6 +99,7 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
             parser.error(error_msg)
             exit()
 
+    # Create download directory if it does not exist
     if args.download_mode == "local":
         os.makedirs(os.path.dirname(args.download_dir), exist_ok=True)
     else:
@@ -81,6 +119,16 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
 
 
 def replace_invalid_values(config_line: dict, table_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Replaces invalid values in a pandas dataframe with a constant value specified in the configuration file.
+
+    Args:
+        config_line: A dictionary representing the configuration settings.
+        table_df: A Pandas DataFrame containing the data to process.
+
+    Returns:
+        A modified Pandas DataFrame with the invalid values replaced according to the configuration settings.
+    """
     for field_name, field_properties in config_line["fields"].items():
         null_const = field_properties.get("null_const", None)
         nulls = field_properties.get("nulls", [])
@@ -100,6 +148,17 @@ def replace_invalid_values(config_line: dict, table_df: pd.DataFrame) -> pd.Data
 
 
 def write_parquet_table(table: pa.Table, download_mode: str, config_file_name: str, download_dir: str):
+    """Write data to a Parquet file.
+
+    Args:
+        table: A PyArrow Table containing the data to write.
+        download_mode: A string representing the download mode (e.g., 'local', 's3', etc.).
+        config_file_name: A string representing the name of the configuration file.
+        download_dir: A string representing the download directory.
+
+    Returns:
+        None
+    """
     file_name = f'{config_file_name}_{datetime.now().strftime("%Y%m%d%H%M%S%f")}.parquet.snappy'
     if download_mode == "local":
         file_path = os.path.join(download_dir, file_name)
@@ -107,6 +166,16 @@ def write_parquet_table(table: pa.Table, download_mode: str, config_file_name: s
 
 
 def execute_configuration(config: list, parser: argparse.ArgumentParser, args: argparse.Namespace):
+    """Execute the configuration settings and download the data
+
+    Args:
+        config: A list of dictionaries representing the configuration settings.
+        parser: An instance of the ArgumentParser class.
+        args: An instance of the Namespace class.
+
+    Returns:
+        None
+    """
     cc = get_connection_context()
     table_df = pd.DataFrame()
 
@@ -139,19 +208,33 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
 
 
 def create_config_file(args: argparse.Namespace) -> None:
+    """Create file to store all configurations to be run for download data for each table
+
+    Args:
+        args: An instance of the Namespace class.
+
+    Returns:
+        None
+    """
     cc = get_connection_context()
     cursor = cc.connection.cursor()
     config_file = []
 
     try:
+        # Construct the config file name
         config_file_name = f"config_{args.table_schema}_{args.table}"
+
+        # Calculate the maximum record batch size
         record_size = calculate_max_record_batch(cc, args)
+
+        # Add the table schema, table, and record size to the config file dictionary
         config_file.append({})
         config_file[0]["schema"] = args.table_schema
         config_file[0]["table"] = args.table
         if record_size and record_size > 0:
             config_file[0]["rec_size"] = record_size
 
+        # Parse the null treatment JSON configuration, if specified
         if args.null_treatment:
             try:
                 null_config = json.loads(args.json)
@@ -159,6 +242,7 @@ def create_config_file(args: argparse.Namespace) -> None:
                 with open(args.json) as f:
                     null_config = json.load(f)
 
+        # Query the table's columns and add them to the config file dictionary
         cursor.execute(f'SELECT "COLUMN_NAME", "INDEX_TYPE", "DATA_TYPE_NAME", "LENGTH", "SCALE" FROM '
                        f'"SYS"."TABLE_COLUMNS" WHERE "TABLE_SCHEMA" = \'{args.table_schema}\' AND "TABLE_NAME" = '
                        f'\'{args.table}\' ORDER BY "POSITION"')
@@ -172,6 +256,7 @@ def create_config_file(args: argparse.Namespace) -> None:
                 config_file[0]["fields"][fields[0]]["length"] = fields[3]
                 config_file[0]["fields"][fields[0]]["scale"] = fields[4]
 
+                # Parse the null treatment for the current field, if specified
                 for null_except in null_config:
                     if "field" in null_except and fields[0] == null_except["field"]:
                         if "null_const" in null_except:
@@ -181,11 +266,13 @@ def create_config_file(args: argparse.Namespace) -> None:
                         if "not_nulls" in null_except:
                             config_file[0]["fields"][fields[0]]["not_nulls"] = null_except["not_nulls"]
 
+        # Add download directory and mode to the config file dictionary, if specified
         if args.download_dir:
             config_file[0]["download_dir"] = args.download_dir
         if args.download_mode:
             config_file[0]["download_mode"] = args.download_mode
 
+        # If group fields are specified, split the table into groups and create a separate config file for each group
         if args.group:
             group_fields_string = ",".join([f'"{item}"' for item in args.group])
             cursor.execute(f"SELECT DISTINCT {group_fields_string} FROM {args.table_schema}.{args.table}")
@@ -202,9 +289,11 @@ def create_config_file(args: argparse.Namespace) -> None:
                         final_config[0]["grouping"] = []
                     final_config[0]["grouping"].append({"field": name, "value": value})
                     config_file_name += f"_{name}-{value}"
+                # Write config file
                 with open(os.path.join(args.config_dir, f"{config_file_name}.json"), "w") as f:
                     json.dump(final_config, f)
         else:
+            # Write config file
             with open(os.path.join(args.config_dir, f"config_{args.table_schema}_{args.table}.json"), "w") as f:
                 json.dump(config_file, f)
 
@@ -213,6 +302,7 @@ def create_config_file(args: argparse.Namespace) -> None:
 
 
 def main():
+    # Parse the command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", type=str, required=True, choices=["download", "configure"],
                         help="Mode or action to run the program")
