@@ -6,6 +6,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from hana_ml import dataframe as hd
+from tqdm import tqdm
+import copy
 
 
 def create_directory_on_bucket():
@@ -14,13 +16,41 @@ def create_directory_on_bucket():
     """
     pass
 
+def check_tilde_expansion(args: argparse.Namespace) -> None:
+    """
+    Check if the paths have tilde as the $HOME variable
+    and expand it to a full path
+    Args:
+        size (int): size to be converted
+        unit (str): unit of the size
+
+    Returns:
+        None
+    """
+    if args.download_dir:
+        args.download_dir = os.path.expanduser(args.download_dir)
+    if args.config_dir:
+        args.config_dir = os.path.expanduser(args.config_dir)
+
+def create_directory_if_not_exist(directory: str) -> None:
+    """
+    Create a directory if it does not exist and add a trailing slash to the end of the directory path.
+
+    Args:
+        directory: the path of the directory to create or check
+
+    Returns:
+        None
+    """
+    if not directory.endswith('/'):
+        directory = directory + '/'
+    os.makedirs(os.path.dirname(directory), exist_ok=True)
 
 def convert_to_bytes(size: int, unit: str) -> int:
     """
     Converts size from unit to bytes
     Args:
-        size (int): size to be converted
-        unit (str): unit of the size
+        args (argparse.Namespace): Arguments
 
     Returns:
         size (int): converted size to bytes
@@ -54,17 +84,42 @@ def calculate_max_record_batch(cc: hd.ConnectionContext, args: argparse.Namespac
     Returns:
         int: Maximum record batch size
     """
+
     if not (args.limit_mode and args.limit_num):
         return 0
     elif args.limit_mode == "records":
         return args.limit_num
     else:
-        byte_size = convert_to_bytes(args.limit_num, args.limit_mode)
-        table_size = cc.sql(
-            f'SELECT RECORD_COUNT, TABLE_SIZE FROM SYS.M_TABLES WHERE SCHEMA_NAME = {args.table_schema} AND '
-            f'TABLE_NAME = {args.table}'
-        )
-        return (byte_size * table_size[0]) // table_size[1]
+        try:
+            cursor = cc.connection.cursor()
+            byte_size = convert_to_bytes(args.limit_num, args.limit_mode)
+            cursor.execute(f'SELECT "RECORD_COUNT", "TABLE_SIZE" FROM "SYS"."M_TABLES" WHERE '
+                        f'"SCHEMA_NAME" = \'{args.table_schema}\' AND "TABLE_NAME" = \'{args.table}\'')
+            table_size = cursor.fetchall()
+            return (byte_size * table_size[0][0]) // table_size[0][1]
+        finally:
+            cursor.close()
+
+
+def calculate_table_record_count(cc: hd.ConnectionContext, tokens: dict, args: argparse.Namespace) -> int:
+    """
+    Retrieve the record count of the table filtered by the group condition
+    Args:
+        cc (hd.ConnectionContext): HANA DB connection context
+        tokens (dict): Tokens dictionary
+        args (argparse.Namespace): Arguments
+
+    Returns:
+        int: Maximum record batch size
+    """
+    try:
+        cursor = cc.connection.cursor()
+        cursor.execute(f'SELECT COUNT(*) FROM \"{args.table_schema}\".\"{args.table}\" '
+                      f'{tokens.get("where_clause")} ')
+        record_count = cursor.fetchall()
+        return record_count[0][0]
+    finally:
+        cursor.close()
 
 
 def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dict, args: argparse.Namespace) -> None:
@@ -101,17 +156,20 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
 
     # Create download directory if it does not exist
     if args.download_mode == "local":
-        os.makedirs(os.path.dirname(args.download_dir), exist_ok=True)
+        create_directory_if_not_exist(args.download_dir)
     else:
         create_directory_on_bucket()
 
     # Parse file name and batch size
-    tokens["config_file_name"] = f'config_{args.table_schema}_{args.table}'
-    tokens["record_size"] = getattr(args, "rec_size", None) or calculate_max_record_batch(get_connection_context(),
-                                                                                          args)
+    tokens["data_file_name"] = f'data_{args.table_schema}_{args.table}'
+    tokens["record_size"] = config_line.get('rec_size') or calculate_max_record_batch(get_connection_context(), args)
     # Create the grouping as a where condition
-    tokens["where_clause"] = "WHERE " + " AND ".join(
-        [f'"{group["field"]}" = \"{group["value"]}\"' for group in config_line["grouping"]])
+    if config_line.get("grouping"):
+        tokens["where_clause"] = "WHERE " + " AND ".join(
+            [f'"{group["field"]}" = \'{group["value"]}\'' for group in config_line["grouping"]])
+        tokens["data_file_name"] += "_"+"_".join([f'{group["field"]}-{group["value"]}' for group in config_line["grouping"]])
+    else:
+        tokens["where_clause"] = ''
     # Create the list of fields to retrieve
     tokens["field_list"] = ",".join([f'\"{value}\"' for value in list(config_line["fields"].keys())])
     tokens["keys"] = ",".join([f'\"{key}\"' for key, val in config_line["fields"].items() if val.get("key") == "X"]) \
@@ -147,19 +205,19 @@ def replace_invalid_values(config_line: dict, table_df: pd.DataFrame) -> pd.Data
     return table_df
 
 
-def write_parquet_table(table: pa.Table, download_mode: str, config_file_name: str, download_dir: str):
+def write_parquet_table(table: pa.Table, download_mode: str, data_file_name: str, download_dir: str):
     """Write data to a Parquet file.
 
     Args:
         table: A PyArrow Table containing the data to write.
         download_mode: A string representing the download mode (e.g., 'local', 's3', etc.).
-        config_file_name: A string representing the name of the configuration file.
+        data_file_name: A string representing the name of the file containing the data.
         download_dir: A string representing the download directory.
 
     Returns:
         None
     """
-    file_name = f'{config_file_name}_{datetime.now().strftime("%Y%m%d%H%M%S%f")}.parquet.snappy'
+    file_name = f'{data_file_name}_{datetime.now().strftime("%Y%m%d%H%M%S%f")}.parquet.snappy'
     if download_mode == "local":
         file_path = os.path.join(download_dir, file_name)
         pq.write_table(table, file_path, compression="snappy")
@@ -186,7 +244,10 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
 
             if tokens.get("record_size") > 1:
                 offset = 0
-                while not table_df.empty:
+
+                max_size_limit = calculate_table_record_count(cc, tokens, args)
+                pbar_batch = tqdm(desc=f'Download table {args.table_schema}.{args.table}', total=max_size_limit)
+                while offset <= max_size_limit:
                     table_df = cc.sql(
                         f'SELECT {tokens.get("field_list")} FROM \"{args.table_schema}\".\"{args.table}\" '
                         f'{tokens.get("where_clause")} ORDER BY {tokens.get("keys")} LIMIT'
@@ -194,15 +255,19 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
                     # Convert dataframe to parquet
                     table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
                     # Write file data
-                    write_parquet_table(table, args.download_mode, tokens.get("config_file_name"), args.download_dir)
+                    write_parquet_table(table, args.download_mode, tokens.get("data_file_name"), args.download_dir)
                     offset += tokens.get("record_size")
+                    pbar_batch.update(tokens.get("record_size"))
+                    if table_df.empty:
+                        break
+                pbar_batch.close()
             else:
                 table_df = cc.sql(f'SELECT {tokens.get("field_list")} FROM \"{args.table_schema}\".\"{args.table}\" '
                                   f'{tokens.get("where_clause")} ORDER BY {tokens.get("keys")}').collect()
                 # Convert dataframe to parquet
                 table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
                 # Write file data
-                write_parquet_table(table, args.download_mode, tokens.get("config_file_name"), args.download_dir)
+                write_parquet_table(table, args.download_mode, tokens.get("data_file_name"), args.download_dir)
     finally:
         cc.close()
 
@@ -229,22 +294,14 @@ def create_config_file(args: argparse.Namespace) -> None:
 
         # Add the table schema, table, and record size to the config file dictionary
         config_file.append({})
-        config_file[0]["schema"] = args.table_schema
+        config_file[0]["table_schema"] = args.table_schema
         config_file[0]["table"] = args.table
         if record_size and record_size > 0:
             config_file[0]["rec_size"] = record_size
 
-        # Parse the null treatment JSON configuration, if specified
-        if args.null_treatment:
-            try:
-                null_config = json.loads(args.json)
-            except json.JSONDecodeError:
-                with open(args.json) as f:
-                    null_config = json.load(f)
-
         # Query the table's columns and add them to the config file dictionary
         cursor.execute(f'SELECT "COLUMN_NAME", "INDEX_TYPE", "DATA_TYPE_NAME", "LENGTH", "SCALE" FROM '
-                       f'"SYS"."TABLE_COLUMNS" WHERE "TABLE_SCHEMA" = \'{args.table_schema}\' AND "TABLE_NAME" = '
+                       f'"SYS"."TABLE_COLUMNS" WHERE "SCHEMA_NAME" = \'{args.table_schema}\' AND "TABLE_NAME" = '
                        f'\'{args.table}\' ORDER BY "POSITION"')
         table_fields = cursor.fetchall()
         if table_fields:
@@ -256,15 +313,22 @@ def create_config_file(args: argparse.Namespace) -> None:
                 config_file[0]["fields"][fields[0]]["length"] = fields[3]
                 config_file[0]["fields"][fields[0]]["scale"] = fields[4]
 
-                # Parse the null treatment for the current field, if specified
-                for null_except in null_config:
-                    if "field" in null_except and fields[0] == null_except["field"]:
-                        if "null_const" in null_except:
-                            config_file[0]["fields"][fields[0]]["null_const"] = null_except["null_const"]
-                        if "nulls" in null_except:
-                            config_file[0]["fields"][fields[0]]["nulls"] = null_except["nulls"]
-                        if "not_nulls" in null_except:
-                            config_file[0]["fields"][fields[0]]["not_nulls"] = null_except["not_nulls"]
+                # Parse the null treatment JSON configuration, if specified
+                if args.null_treatment:
+                    try:
+                        null_config = json.loads(args.null_treatment)
+                    except json.JSONDecodeError:
+                        with open(args.null_treatment) as f:
+                            null_config = json.load(f)
+                    # Parse the null treatment for the current field, if specified
+                    for null_except in null_config:
+                        if "field" in null_except and fields[0] == null_except["field"]:
+                            if "null_const" in null_except:
+                                config_file[0]["fields"][fields[0]]["null_const"] = null_except["null_const"]
+                            if "nulls" in null_except:
+                                config_file[0]["fields"][fields[0]]["nulls"] = null_except["nulls"]
+                            if "not_nulls" in null_except:
+                                config_file[0]["fields"][fields[0]]["not_nulls"] = null_except["not_nulls"]
 
         # Add download directory and mode to the config file dictionary, if specified
         if args.download_dir:
@@ -282,29 +346,29 @@ def create_config_file(args: argparse.Namespace) -> None:
             # RECORD_LIMIT FROM {args.table_schema}.{args.table} GROUP BY {group_fields_string}))") Pop up message to
             # validate if continue or not
             grouping_values = cursor.fetchall()
-            for unique_key in grouping_values:
-                final_config = config_file
+            for unique_key in tqdm(grouping_values, desc='Splitting in several configuration files'):
+                final_config = copy.deepcopy(config_file)
+                final_file_name = config_file_name
                 for name, value in zip(args.group, unique_key):
                     if "grouping" not in final_config[0]:
                         final_config[0]["grouping"] = []
                     final_config[0]["grouping"].append({"field": name, "value": value})
-                    config_file_name += f"_{name}-{value}"
+                    final_file_name += f"_{name}-{value}"
                 # Write config file
-                with open(os.path.join(args.config_dir, f"{config_file_name}.json"), "w") as f:
-                    json.dump(final_config, f)
+                with open(os.path.join(args.config_dir, f"{final_file_name}.json"), "w") as f:
+                    json.dump(final_config, f, indent=4)
         else:
             # Write config file
             with open(os.path.join(args.config_dir, f"config_{args.table_schema}_{args.table}.json"), "w") as f:
-                json.dump(config_file, f)
+                json.dump(config_file, f, indent=4)
 
     finally:
         cursor.close()
 
-
 def main():
     # Parse the command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", type=str, required=True, choices=["download", "configure"],
+    parser.add_argument("mode", type=str, choices=["download", "configure"],
                         help="Mode or action to run the program")
     parser.add_argument("--config_dir", "-cd", type=str, required=True,
                         help="Directory where the configuration files are written or read it from")
@@ -323,6 +387,7 @@ def main():
 
     args = parser.parse_args()
 
+    check_tilde_expansion(args)
     # Check which of the modes will be executed
     if args.mode == "configure":
         # Validate the required arguments
@@ -335,7 +400,7 @@ def main():
             parser.error("Both --limit_mode and --limit_num must be specified")
 
         # Create the directory if it doesn't exist
-        os.makedirs(os.path.dirname(args.config_dir), exist_ok=True)
+        create_directory_if_not_exist(args.config_dir)
 
         create_config_file(args)
     elif args.mode == "download":
@@ -349,16 +414,16 @@ def main():
 
         # Loop through each file in the directory
         if os.path.isdir(args.config_dir):
-            for filename in os.listdir(args.config_dir):
+            for filename in tqdm(os.listdir(args.config_dir), desc='Parsing tables'):
                 if filename.endswith(".json"):
                     file_path = os.path.join(args.config_dir, filename)
                     with open(file_path) as f:
                         config = json.load(f)
-                        execute_configuration(config, parser, **vars(args))
+                        execute_configuration(config, parser, args)
         else:
             with open(args.config_dir) as f:
                 config = json.load(f)
-                execute_configuration(config, parser, **vars(args))
+                execute_configuration(config, parser, args)
 
 
 if __name__ == "__main__":
