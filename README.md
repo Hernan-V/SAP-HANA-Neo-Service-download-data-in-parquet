@@ -19,12 +19,9 @@ export SAP_HANA_USER=<DB User>
 export SAP_HANA_PASSWORD=<Password of DB user>
 ```
 
-{% note %}
-
-**Note:** To be sure that the python script will recognize the environment variables and be independent of any terminal session, add the variables to your `~/.bashrc` file and then execute a `source ~/.bashrc`.
+**Note:**
+To be sure that the python script will recognize the environment variables and be independent of any terminal session, add the variables to your `~/.bashrc` file and then execute a `source ~/.bashrc`.
 Update the port and credentials if needed on the file.
-
-{% endnote %}
 
 ## Usage
 
