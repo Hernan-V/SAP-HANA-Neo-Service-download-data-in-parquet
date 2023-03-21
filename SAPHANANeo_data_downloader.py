@@ -31,6 +31,8 @@ def check_tilde_expansion(args: argparse.Namespace) -> None:
         args.download_dir = os.path.expanduser(args.download_dir)
     if args.config_dir:
         args.config_dir = os.path.expanduser(args.config_dir)
+    if args.null_treatment:
+        args.null_treatment = os.path.expanduser(args.null_treatment)
 
 def create_directory_if_not_exist(directory: str) -> None:
     """

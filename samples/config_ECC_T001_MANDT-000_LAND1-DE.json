@@ -1,0 +1,502 @@
+[
+    {
+        "table_schema": "ECC",
+        "table": "T001",
+        "fields": {
+            "MANDT": {
+                "key": "X",
+                "type": "NVARCHAR",
+                "length": 3,
+                "scale": null
+            },
+            "BUKRS": {
+                "key": "X",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "BUTXT": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 25,
+                "scale": null
+            },
+            "ORT01": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 25,
+                "scale": null
+            },
+            "LAND1": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 3,
+                "scale": null
+            },
+            "WAERS": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 5,
+                "scale": null
+            },
+            "SPRAS": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "KTOPL": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "WAABW": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "PERIV": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "KOKFI": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "RCOMP": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 6,
+                "scale": null
+            },
+            "ADRNR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 10,
+                "scale": null
+            },
+            "STCEG": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 20,
+                "scale": null
+            },
+            "FIKRS": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "XFMCO": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XFMCB": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XFMCA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "TXJCD": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 15,
+                "scale": null
+            },
+            "FMHRDATE": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 8,
+                "scale": null,
+                "null_const": "19000101",
+                "nulls": [
+                    "^0*$",
+                    "^.*\\s+$"
+                ],
+                "not_nulls": [
+                    "^(19\\d\\d|20[0-2]\\d)(0[1-9]|1[012])(0[1-9]|[12]\\d|3[01])$"
+                ]
+            },
+            "BUVAR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "FDBUK": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "XFDIS": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XVALV": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XSKFN": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "KKBER": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "XMWSN": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "MREGL": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "XGSBE": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XGJRV": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XKDFT": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XPROD": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XEINK": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XJVAA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XVVWA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XSLTA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XFDMM": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XFDSD": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XEXTB": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "EBUKR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "KTOP2": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "UMKRS": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "BUKRS_GLOB": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 6,
+                "scale": null
+            },
+            "FSTVA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "OPVAR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "XCOVR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "TXKRS": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "WFVAR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "XBBBF": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XBBBE": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XBBBA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XBBKO": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XSTDT": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "MWSKV": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "MWSKA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "IMPDA": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XNEGP": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XKKBI": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "WT_NEWWT": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "PP_PDATE": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "INFMT": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "FSTVARE": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "KOPIM": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "DKWEG": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "OFFSACCT": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "BAPOVAR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "XCOS": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XCESSION": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XSPLT": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "SURCCM": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "DTPROV": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "DTAMTC": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "DTTAXC": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "DTTDSP": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 2,
+                "scale": null
+            },
+            "DTAXR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 4,
+                "scale": null
+            },
+            "XVATDATE": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "PST_PER_VAR": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "FM_DERIVE_ACC": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            },
+            "XBBSC": {
+                "key": "",
+                "type": "NVARCHAR",
+                "length": 1,
+                "scale": null
+            }
+        },
+        "download_dir": "/test/data",
+        "download_mode": "local",
+        "grouping": [
+            {
+                "field": "MANDT",
+                "value": "000"
+            },
+            {
+                "field": "LAND1",
+                "value": "DE"
+            }
+        ]
+    }
+]

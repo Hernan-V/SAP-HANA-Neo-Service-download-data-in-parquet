@@ -19,9 +19,9 @@ export SAP_HANA_USER=<DB User>
 export SAP_HANA_PASSWORD=<Password of DB user>
 ```
 
-**Note:**
-To be sure that the python script will recognize the environment variables and be independent of any terminal session, add the variables to your `~/.bashrc` file and then execute a `source ~/.bashrc`.
-Update the port and credentials if needed on the file.
+> **Note:**
+> To be sure that the python script will recognize the environment variables and be independent of any terminal session, add the variables to your `~/.bashrc` file and then execute a `source ~/.bashrc`.
+> Update the port and credentials if needed on the file.
 
 ## Usage
 
@@ -48,6 +48,7 @@ To configure the data download, you can call the script with the "configure" par
       - Finally there is the key `not_nulls` that can be use togheter or instead the `nulls`. Because the nature of listing the null values needed to recognize what values are present to treat them as null, sometimes more feasible to explain what is the rule to be a expected _"good"_ value.
       These key expect also a array of string, and each value is a regular expression.
       Then the script will compare each data value of the dataset for the column (aka field) and compare to all the values on these array with the AND operator, meaning that all the expressions must be true in order to pass, otherwise it will be replaced by the value of `null_const`
+      See an example [here](/samples/example_null_treatment_ABAP_date.json)
 - `--download_dir` or `-t`: The directory where the downloaded data will be stored.
 - `--download_mode` or `-t`: The download mode. This can be either "local" ~~or "cloud"~~ .
 
