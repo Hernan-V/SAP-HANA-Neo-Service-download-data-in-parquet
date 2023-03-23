@@ -173,9 +173,13 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
     else:
         tokens["where_clause"] = ''
     # Create the list of fields to retrieve
-    tokens["field_list"] = ",".join([f'\"{value}\"' for value in list(config_line["fields"].keys())])
-    tokens["keys"] = ",".join([f'\"{key}\"' for key, val in config_line["fields"].items() if val.get("key") == "X"]) \
-                     or tokens["field_list"]
+    if config_line.get("fields"):
+        tokens["field_list"] = ",".join([f'\"{value}\"' for value in list(config_line["fields"].keys())])
+        tokens["keys"] = ",".join([f'\"{key}\"' for key, val in config_line["fields"].items() if val.get("key") == "X"]) \
+                         or tokens["field_list"]
+    else:
+        tokens["field_list"] = "*"
+        tokens["keys"] = ""
 
 
 def replace_invalid_values(config_line: dict, table_df: pd.DataFrame) -> pd.DataFrame:
@@ -189,20 +193,21 @@ def replace_invalid_values(config_line: dict, table_df: pd.DataFrame) -> pd.Data
     Returns:
         A modified Pandas DataFrame with the invalid values replaced according to the configuration settings.
     """
-    for field_name, field_properties in config_line["fields"].items():
-        null_const = field_properties.get("null_const", None)
-        nulls = field_properties.get("nulls", [])
-        not_nulls = field_properties.get("not_nulls", [])
+    if config_line.get("fields"):
+        for field_name, field_properties in config_line["fields"].items():
+            null_const = field_properties.get("null_const", None)
+            nulls = field_properties.get("nulls", [])
+            not_nulls = field_properties.get("not_nulls", [])
 
-        # replace all invalid values (OR) with a constant
-        null_values = "|".join(nulls)
-        if null_values:
-            table_df[field_name] = table_df[field_name].replace(null_values, null_const, regex=True)
+            # replace all invalid values (OR) with a constant
+            null_values = "|".join(nulls)
+            if null_values:
+                table_df[field_name] = table_df[field_name].replace(null_values, null_const, regex=True)
 
-        # replace all not valid values (AND) with a constant
-        if not_nulls:
-            not_null_value = "^((?!" + "|".join(not_nulls) + ").)*$"
-            table_df[field_name] = table_df[field_name].replace(not_null_value, null_const, regex=True)
+            # replace all not valid values (AND) with a constant
+            if not_nulls:
+                not_null_value = "^((?!" + "|".join(not_nulls) + ").)*$"
+                table_df[field_name] = table_df[field_name].replace(not_null_value, null_const, regex=True)
 
     return table_df
 
@@ -252,7 +257,7 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
                 while offset <= max_size_limit:
                     table_df = cc.sql(
                         f'SELECT {tokens.get("field_list")} FROM \"{args.table_schema}\".\"{args.table}\" '
-                        f'{tokens.get("where_clause")} ORDER BY {tokens.get("keys")} LIMIT'
+                        f'{tokens.get("where_clause")} {tokens.get("keys")} LIMIT'
                         f' {tokens.get("record_size")} OFFSET {offset}').collect()
                     # Convert dataframe to parquet
                     table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
@@ -265,7 +270,7 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
                 pbar_batch.close()
             else:
                 table_df = cc.sql(f'SELECT {tokens.get("field_list")} FROM \"{args.table_schema}\".\"{args.table}\" '
-                                  f'{tokens.get("where_clause")} ORDER BY {tokens.get("keys")}').collect()
+                                  f'{tokens.get("where_clause")} {tokens.get("keys")}').collect()
                 # Convert dataframe to parquet
                 table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
                 # Write file data
@@ -415,7 +420,11 @@ def main():
             parser.error("The --download_dir and --download_mode must be specified")
 
         # Loop through each file in the directory
-        if os.path.isdir(args.config_dir):
+        if not args.config_dir:
+            for i in tqdm(range(1), desc='Parsing tables'):
+                config = [{}]
+                execute_configuration(config, parser, args)
+        elif os.path.isdir(args.config_dir):
             for filename in tqdm(os.listdir(args.config_dir), desc='Parsing tables'):
                 if filename.endswith(".json"):
                     file_path = os.path.join(args.config_dir, filename)
