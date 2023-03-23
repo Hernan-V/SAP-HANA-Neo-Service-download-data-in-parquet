@@ -372,7 +372,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", type=str, choices=["download", "configure"],
                         help="Mode or action to run the program")
-    parser.add_argument("--config_dir", "-cd", type=str, required=True,
+    parser.add_argument("--config_dir", "-cd", type=str,
                         help="Directory where the configuration files are written or read it from")
     parser.add_argument("--table", "-t", type=str, help="Table to work with")
     parser.add_argument("--table_schema", "-ts", type=str, help="DB Schema of the table to work with")
