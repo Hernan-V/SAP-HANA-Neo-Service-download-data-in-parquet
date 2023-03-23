@@ -409,8 +409,8 @@ def main():
         # Validate the required arguments
         if not args.config_dir and (not args.table or not args.table_schema):
             parser.error("Either the --config_dir flag or the --table and --table_schema must be specified")
-        if not args.config_dir and (not args.limit_mode or not args.limit_num):
-            parser.error("Either the --config_dir flag or the --limit_mode and --limit_num must be specified")
+        #if not args.config_dir and (not args.limit_mode or not args.limit_num):
+        #    parser.error("Either the --config_dir flag or the --limit_mode and --limit_num must be specified")
         if not args.config_dir and (not args.download_dir or not args.download_mode):
             parser.error("The --download_dir and --download_mode must be specified")
 
