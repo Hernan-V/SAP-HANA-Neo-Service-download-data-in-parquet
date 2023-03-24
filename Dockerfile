@@ -10,3 +10,5 @@ RUN apt-get update && \
 
 # Install any necessary Python packages
 RUN pip install -r requirements.txt
+
+ENTRYPOINT["SAPHANANeo_data_downloader.py"]
