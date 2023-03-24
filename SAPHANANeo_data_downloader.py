@@ -177,6 +177,7 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
         tokens["field_list"] = ",".join([f'\"{value}\"' for value in list(config_line["fields"].keys())])
         tokens["keys"] = ",".join([f'\"{key}\"' for key, val in config_line["fields"].items() if val.get("key") == "X"]) \
                          or tokens["field_list"]
+        tokens["keys"] = " ORDER BY " + tokens["keys"]
     else:
         tokens["field_list"] = "*"
         tokens["keys"] = ""
