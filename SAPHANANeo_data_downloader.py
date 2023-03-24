@@ -254,7 +254,8 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
                 offset = 0
 
                 max_size_limit = calculate_table_record_count(cc, tokens, args)
-                pbar_batch = tqdm(desc=f'Download table {args.table_schema}.{args.table}', total=max_size_limit)
+                pbar_batch = tqdm(desc=f'Download file {tokens.get("data_file_name")}', total=max_size_limit,
+                                  bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} records [{elapsed}<{remaining}]')
                 while offset <= max_size_limit:
                     table_df = cc.sql(
                         f'SELECT {tokens.get("field_list")} FROM \"{args.table_schema}\".\"{args.table}\" '
@@ -270,12 +271,14 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
                         break
                 pbar_batch.close()
             else:
-                table_df = cc.sql(f'SELECT {tokens.get("field_list")} FROM \"{args.table_schema}\".\"{args.table}\" '
-                                  f'{tokens.get("where_clause")} {tokens.get("keys")}').collect()
-                # Convert dataframe to parquet
-                table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
-                # Write file data
-                write_parquet_table(table, args.download_mode, tokens.get("data_file_name"), args.download_dir)
+                for i in tqdm(range(1), desc=f'Download file {tokens.get("data_file_name")}',
+                              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
+                    table_df = cc.sql(f'SELECT {tokens.get("field_list")} FROM \"{args.table_schema}\".\"{args.table}\" '
+                                      f'{tokens.get("where_clause")} {tokens.get("keys")}').collect()
+                    # Convert dataframe to parquet
+                    table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
+                    # Write file data
+                    write_parquet_table(table, args.download_mode, tokens.get("data_file_name"), args.download_dir)
     finally:
         cc.close()
 
@@ -354,7 +357,8 @@ def create_config_file(args: argparse.Namespace) -> None:
             # RECORD_LIMIT FROM {args.table_schema}.{args.table} GROUP BY {group_fields_string}))") Pop up message to
             # validate if continue or not
             grouping_values = cursor.fetchall()
-            for unique_key in tqdm(grouping_values, desc='Splitting in several configuration files'):
+            for unique_key in tqdm(grouping_values, desc='Splitting in several configuration files'
+                                   ,bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
                 final_config = copy.deepcopy(config_file)
                 final_file_name = config_file_name
                 for name, value in zip(args.group, unique_key):
@@ -422,11 +426,12 @@ def main():
 
         # Loop through each file in the directory
         if not args.config_dir:
-            for i in tqdm(range(1), desc='Parsing tables'):
+            for i in tqdm(range(1), desc='Parsing tables',bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
                 config = [{}]
                 execute_configuration(config, parser, args)
         elif os.path.isdir(args.config_dir):
-            for filename in tqdm(os.listdir(args.config_dir), desc='Parsing tables'):
+            for filename in tqdm(os.listdir(args.config_dir), desc='Parsing tables',
+                                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
                 if filename.endswith(".json"):
                     file_path = os.path.join(args.config_dir, filename)
                     with open(file_path) as f:
