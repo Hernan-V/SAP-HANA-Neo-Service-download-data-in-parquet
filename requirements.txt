@@ -2,3 +2,4 @@ argparse
 pandas
 pyarrow
 hana_ml
+tqdm
