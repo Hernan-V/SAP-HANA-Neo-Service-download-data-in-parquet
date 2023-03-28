@@ -56,6 +56,6 @@ COPY . /app
 # Install any necessary Python packages
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD python SAPHANANeo_data_downloader.py
+CMD python HANA-downloader.py
 ENTRYPOINT neo.sh open-db-tunnel -h $BTP_SUBACCOUNT_HOST -u $BTP_SUBACCOUNT_USER \
 -p $BTP_SUBACCOUNT_PASSWORD -a $BTP_SUBACCOUNT_ID -i $BTP_SUBACCOUNT_DB --background
