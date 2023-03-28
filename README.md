@@ -4,7 +4,7 @@
 
 The SAP HANA Data Downloader is a Python script that allows you to download data from SAP HANA databases and store it in parquet files. This can be useful when working with large datasets that are too big to be stored in memory or when you want to work with data in a format that can be easily shared and analyzed.
 
-Overall, the SAPHANANeo_data_downloader script provides a powerful and flexible tool for downloading and processing data from SAP HANA systems, allowing users to customize the download and processing process to fit their specific needs and requirements.
+Overall, the HANA-downloader script provides a powerful and flexible tool for downloading and processing data from SAP HANA systems, allowing users to customize the download and processing process to fit their specific needs and requirements.
 
 ## Pre-Requisites
 - Install Python 3 and all the libraries present in requirements.txt
