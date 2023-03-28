@@ -69,7 +69,7 @@ Also the data will be splitted by the fields MANDT and LAND1 in several files.
 
 The script will be called as follow:
 ```bash
-python SAPHANANeo_data_downloader.py "configure" --config_dir "~/test/configuration" \
+python HANA_downloader.py "configure" --config_dir "~/test/configuration" \
 --table "T001" --table_schema "ECC" --group MANDT LAND1 \
 --null_treatment "/path_to_json/null.json" \
 --download_dir "~/test/data" --download_mode local
@@ -614,13 +614,13 @@ All the files created with the configuration to download the data and splitted b
 Once all the files with the configuration were created, the script will be executed using the path to those files to take them as the recipe to download the data.
 To use them we execute the script as follow:
 ```bash
-SAPHANANeo_data_downloader.py "download" --table "T001" --table_schema "ECC" \
+HANA_downloader.py "download" --table "T001" --table_schema "ECC" \
 --group MANDT LAND1  --download_dir "~/test/data" --download_mode local \
 --null_treatment "~/test/samples/example_null_treatment_ABAP_date.json"
 ```
 Or just take the directory where all the files with the recipe are it's enough:
 ```bash
-SAPHANANeo_data_downloader.py "download" --config_dir "~/test/configuration"
+HANA_downloader.py "download" --config_dir "~/test/configuration"
 ```
 
 And for the json files we provide, the parquet files compressed with snappy will be created.
@@ -979,7 +979,7 @@ The size of the table on the DB it is __15,5 MB__
 
 So to split the result in chunks of 5 MB we will execute
 ```bash
-python SAPHANANeo_data_downloader.py "configure" --config_dir "~/test/configuration/LFB1" \
+python HANA_downloader.py "configure" --config_dir "~/test/configuration/LFB1" \
 --table "LFB1" --table_schema "ECC" \
 --limit_mode MB --limit_num 5 \
 --download_dir "~/test/data/LFB1" --download_mode local
@@ -1470,7 +1470,7 @@ We make an `ls` on the directory `~/test/configuration/LFB1` and we get only one
 
 And then we can execute the download with the command:
 ```bash
-python SAPHANANeo_data_downloader.py "download" --config_dir "~/test/configuration/LFB1"
+python HANA_downloader.py "download" --config_dir "~/test/configuration/LFB1"
 ```
 
 As a result we make a `ls -lh` on the direcotry `~/test/data/LFB1`
@@ -1532,7 +1532,7 @@ Aproximatly from 2019 to 2022 each year have a footprint of _14 GB_ on the datab
 
 So we will first create the configuration files, and each file limit to a max of 1 GB:
 ```bash
-python SAPHANANeo_data_downloader.py "configure" --config_dir "~/test/configuration/BSEG" \
+python HANA_downloader.py "configure" --config_dir "~/test/configuration/BSEG" \
 --table "BSEG" --table_schema "ECC" --group GJAHR \
 --null_treatment "/path_to_json/null.json" \
 --limit_mode "GB" --limit_num 1
