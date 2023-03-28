@@ -54,7 +54,7 @@ To configure the data download, you can call the script with the "configure" par
 
 Example:
 ```bash
-python SAPHANANeo_data_downloader.py "configure" --config_dir "~/test/configuration" \
+python HANA_downloader.py "configure" --config_dir "~/test/configuration" \
 --table "T001" --table_schema "ECC" --group MANDT LAND1 \
 --null_treatment "[{'field': 'FMHRDATE','null_const': '19000101','nulls': ['^0*$','^.*\s+$'],'not_nulls': ['^(19\d\d|20[0-2]\d)(0[1-9]|1[012])(0[1-9]|[12]\d|3[01])$']}]" \
 --download_dir "~/test/data" --download_mode local
@@ -75,7 +75,7 @@ To download the data stored in a table, you can call the script with the "downlo
 
 Example:
 ```bash
-python SAPHANANeo_data_downloader.py "download" --config_dir "~/test/configuration"
+python HANA_downloader.py "download" --config_dir "~/test/configuration"
 ```
 #### Results
 
