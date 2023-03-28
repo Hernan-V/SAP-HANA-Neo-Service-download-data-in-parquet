@@ -33,7 +33,7 @@ docker run --name hana-download \
 -e SAP_HANA_USER=${SAP_HANA_USER} \
 -e SAP_HANA_PASSWORD=${SAP_HANA_PASSWORD} \
 -e SAP_HANA_PORT=${SAP_HANA_PORT} \ 
-hana-download-image python HANA_downloader.py \
+hana-download-image python SAPHANANeo_data_downloader.py \
 "configure" --config_dir "/config" \
 --table "T001" --table_schema "ECC" --group MANDT LAND1 \
 --null_treatment "/nulls/T001_nulls.json" \
@@ -51,7 +51,7 @@ docker run --name hana-download \
 -e SAP_HANA_USER=${SAP_HANA_USER} \
 -e SAP_HANA_PASSWORD=${SAP_HANA_PASSWORD} \
 -e SAP_HANA_PORT=${SAP_HANA_PORT} \ 
-HANADownload_image python HANA_downloader.py \
+HANADownload_image python SAPHANANeo_data_downloader.py \
 "download" --config_dir "/config"
 ```
 
