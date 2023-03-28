@@ -1,0 +1,40 @@
+version: "0.1"
+
+services:
+  hana-config-t001:
+    build:
+      context: .
+      args:
+        BTP_SUBACCOUNT_HOST: ${BTP_SUBACCOUNT_HOST}
+        BTP_SUBACCOUNT_USER: ${BTP_SUBACCOUNT_USER}
+        BTP_SUBACCOUNT_PASSWORD: ${BTP_SUBACCOUNT_PASSWORD}
+        BTP_SUBACCOUNT_ID: ${BTP_SUBACCOUNT_ID}
+        BTP_SUBACCOUNT_DB: ${BTP_SUBACCOUNT_DB}
+      image: hana-download-image
+    container_name: hana-config-t001
+    volumes:
+      - ~/example/config/T001:/config
+      - ~/example/data/T001:/data
+      - ~/example/nulls:/nulls
+    environment:
+      - SAP_HANA_HOST=${SAP_HANA_HOST}
+      - SAP_HANA_USER=${SAP_HANA_USER}
+      - SAP_HANA_PASSWORD=${SAP_HANA_PASSWORD}
+      - SAP_HANA_PORT=${SAP_HANA_PORT}
+    command: python SAPHANANeo_data_downloader.py configure --config_dir "/config" --table "T001" --table_schema "ECC" --group MANDT LAND1 --null_treatment "/nulls/T001_nulls.json" --download_dir "/data" --download_mode local
+
+  hana-download-t001:
+    depends_on:
+      - hana-config-t001
+    image: hana-download-image
+    container_name: hana-download-t001
+    volumes:
+      - ~/example/config/T001:/config
+      - ~/example/data/T001:/data
+      - ~/example/nulls:/nulls
+    environment:
+      - SAP_HANA_HOST=${SAP_HANA_HOST}
+      - SAP_HANA_USER=${SAP_HANA_USER}
+      - SAP_HANA_PASSWORD=${SAP_HANA_PASSWORD}
+      - SAP_HANA_PORT=${SAP_HANA_PORT}
+    command: python SAPHANANeo_data_downloader.py download --config_dir "/config"
