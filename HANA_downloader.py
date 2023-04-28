@@ -150,6 +150,8 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
         ("download_dir", 'Either the --download_dir and --download_mode arguments must be specified, '
                          'or the configuration file at --config_dir needs both the "download_dir" and "download_mode"'
                          ' attributes', "dummy"),
+        ("query", 'Either the configuration file at --config_dir needs the "query" attribute, or the --query '
+                  'argument must be specified', "table"),
     ]
     # Validate required attributes
     for attr, error_msg, alt_attr in required_attrs:
@@ -167,11 +169,11 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
 
     # Parse file name and batch size
     tokens["data_file_name"] = 'data_' + (f'freestyleSQL_{datetime.now().strftime("%Y%m%d%H%M%S%f")}' if
-                                          config_line.get("query") else f'{args.table_schema}_{clean_filename(args.table)}')
+                                          args.query else f'{args.table_schema}_{clean_filename(args.table)}')
     tokens["record_size"] = config_line.get('rec_size') or calculate_max_record_batch(get_connection_context(), args)
     # Create the grouping as a where condition
     if config_line.get("grouping"):
-        if config_line.get("query"):
+        if args.query:
             query_response = input("The --query flag can not be used with --group. Would you like to discard the "
                                    "grouping? (y/n)")
             if query_response.lower() in ["n", "no"]:
@@ -183,7 +185,7 @@ def parse_config(config_line: dict, parser: argparse.ArgumentParser, tokens: dic
     else:
         tokens["where_clause"] = ''
     # Create the list of fields to retrieve
-    if not config_line.get("query"):
+    if not args.query:
         if config_line.get("fields"):
             tokens["field_list"] = ",".join([f'\"{value}\"' for value in list(config_line["fields"].keys())])
             tokens["keys"] = ",".join(
@@ -262,7 +264,7 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
             tokens = {}
             parse_config(config_line, parser, tokens, args)
 
-            sql_stmt = config_line["query"] if config_line.get("query") else (f'SELECT {tokens.get("field_list")} FROM '
+            sql_stmt = args.query if args.query else (f'SELECT {tokens.get("field_list")} FROM '
                         f'\"{args.table_schema}\".\"{args.table}\" {tokens.get("where_clause")} {tokens.get("keys")}')
             #if config_line.get("query"):
             #    sql_stmt = config_line.query
@@ -273,7 +275,7 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
             if tokens.get("record_size") > 1:
                 offset = 0
 
-                max_size_limit = calculate_table_record_count(cc, tokens, args) if not config_line.get("query") else (100**10)
+                max_size_limit = calculate_table_record_count(cc, tokens, args) if not args.query else (100**10)
                 pbar_batch = tqdm(desc=f'Download file {tokens.get("data_file_name")}', total=max_size_limit,
                                   bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} records [{elapsed}<{remaining}]')
                 while offset <= max_size_limit:
