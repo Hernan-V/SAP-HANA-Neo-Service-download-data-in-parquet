@@ -38,6 +38,7 @@ To configure the data download, you can call the script with the "configure" par
 - `--limit_mode` or `-lm`: If the data have to be splitted in chunks because a practise, volume, network quota or performance, with these parameter can calculate these _batches_. These is optional and the possible values are `["records", "B", "KB", "MB", "GB", "TB"]`. It's like the size unit of the batch.
 - `--limit_num` or `-ln`: If the `--limit_mode` flag was set, here you should set the size of the batch as an integer number.
 - `--group` or `-g`: The fields used to group the data files. It's a way to generate all the data of certain subset toghether. It can be use with or without the `--limit_mode` flag.
+- `--query` or `-q`: The ability to send a custom SQL query as a string, that will override the flags `--table_schema`, `--table` and `--group`. The flags `--limit_num` and `--limit_mode` can still use, but `--limit_mode` must be set in records.
 - `--null_treatment` or `-nt`: The treatment to apply to null values. This can be provided as a string in JSON format or the path to a JSON file that contains the rule. These is optional.
   - The structure of the json file could be separated in:
     - A curly brace pair for each field of the table (or objects)
@@ -69,6 +70,7 @@ To download the data stored in a table, you can call the script with the "downlo
 - `--limit_num` or `-ln`: If the `--limit_mode` flag was set, here you should set the size of the batch as an integer number.
 - `--download_dir` or `-t`: The directory where the downloaded data will be stored.
 - `--download_mode` or `-t`: The download mode. This can be either "local" ~~or "cloud"~~ .
+- `--query` or `-q`: The ability to send a custom SQL query as a string, that will override the flags `--table_schema` and `--table`. The flags `--limit_num` and `--limit_mode` can still use, but `--limit_mode` must be set in records.
 - `--config_dir` or `-cd`: The directory where the configuration files are stored.
   This argument could be the path of a directory or even a single file.
   If it is populated, then the rest of the flags are optional and will be overwrite with the correspond value present on the configuration file.

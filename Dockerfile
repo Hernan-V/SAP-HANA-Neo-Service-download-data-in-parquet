@@ -41,7 +41,7 @@ RUN echo "export JAVA_HOME=/sapjvm/sapjvm_8/jre" >> $HOME/.bashrc
 
 # Download SAP BTP Neo SDK
 WORKDIR /neosdk
-RUN curl -fsSL 'https://tools.eu1.hana.ondemand.com/sdk/neo-java-web-sdk-3.174.7.zip' -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br' -H 'Connection: keep-alive' -H 'Referer: https://tools.eu1.hana.ondemand.com/' -H 'Cookie: eula_3_1_agreed=tools.hana.ondemand.com/developer-license-3_1.txt' -H 'Upgrade-Insecure-Requests: 1' -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: same-origin' -H 'Sec-Fetch-User: ?1' -o neosdk.zip
+RUN curl -fsSL 'https://tools.hana.ondemand.com/sdk/neo-java-web-sdk-3.176.4.zip' -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br' -H 'Connection: keep-alive' -H 'Referer: https://tools.eu1.hana.ondemand.com/' -H 'Cookie: eula_3_1_agreed=tools.hana.ondemand.com/developer-license-3_1.txt' -H 'Upgrade-Insecure-Requests: 1' -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: same-origin' -H 'Sec-Fetch-User: ?1' -o neosdk.zip
 
 # Uncompress the file and delete the zip
 RUN unzip -q neosdk.zip
