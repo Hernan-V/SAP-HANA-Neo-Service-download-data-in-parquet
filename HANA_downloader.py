@@ -240,7 +240,7 @@ def write_parquet_table(table_df: pd.DataFrame, download_mode: str, data_file_na
         None
     """
     file_name = f'{data_file_name}_{datetime.now().strftime("%Y%m%d%H%M%S%f")}.parquet.snappy'
-    if download_mode in ["local","GCS"]:
+    if download_mode in ["local","GCS","S3"]:
         file_path = os.path.join(download_dir, file_name)
         table_df.to_parquet(file_path, compression="snappy")
 
