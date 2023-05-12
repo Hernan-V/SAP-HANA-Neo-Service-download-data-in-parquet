@@ -3,3 +3,6 @@ pandas
 pyarrow
 hana_ml
 tqdm
+fsspec
+gcsfs
+s3fs
