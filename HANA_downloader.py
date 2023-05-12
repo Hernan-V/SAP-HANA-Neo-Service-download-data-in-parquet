@@ -27,7 +27,7 @@ def check_tilde_expansion(args: argparse.Namespace) -> None:
     Returns:
         None
     """
-    if args.download_dir:
+    if args.download_dir and args.download_mode == "local":
         args.download_dir = os.path.expanduser(args.download_dir)
     if args.config_dir:
         args.config_dir = os.path.expanduser(args.config_dir)
@@ -227,11 +227,11 @@ def replace_invalid_values(config_line: dict, table_df: pd.DataFrame) -> pd.Data
     return table_df
 
 
-def write_parquet_table(table: pa.Table, download_mode: str, data_file_name: str, download_dir: str):
+def write_parquet_table(table_df: pd.DataFrame, download_mode: str, data_file_name: str, download_dir: str):
     """Write data to a Parquet file.
 
     Args:
-        table: A PyArrow Table containing the data to write.
+        table_df: A Pandas DataFrame containing the data to process.
         download_mode: A string representing the download mode (e.g., 'local', 's3', etc.).
         data_file_name: A string representing the name of the file containing the data.
         download_dir: A string representing the download directory.
@@ -240,9 +240,9 @@ def write_parquet_table(table: pa.Table, download_mode: str, data_file_name: str
         None
     """
     file_name = f'{data_file_name}_{datetime.now().strftime("%Y%m%d%H%M%S%f")}.parquet.snappy'
-    if download_mode == "local":
+    if download_mode in ["local","GCS"]:
         file_path = os.path.join(download_dir, file_name)
-        pq.write_table(table, file_path, compression="snappy")
+        table_df.to_parquet(file_path, compression="snappy")
 
 
 def execute_configuration(config: list, parser: argparse.ArgumentParser, args: argparse.Namespace):
@@ -280,10 +280,8 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
                                   bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} records [{elapsed}<{remaining}]')
                 while offset <= max_size_limit:
                     table_df = cc.sql(f'{sql_stmt} LIMIT {tokens.get("record_size")} OFFSET {offset}').collect()
-                    # Convert dataframe to parquet
-                    table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
-                    # Write file data
-                    write_parquet_table(table, args.download_mode, tokens.get("data_file_name"), args.download_dir)
+                    # Convert dataframe to parquet and write file data
+                    write_parquet_table(replace_invalid_values(config_line, table_df), args.download_mode, tokens.get("data_file_name"), args.download_dir)
                     offset += tokens.get("record_size")
                     pbar_batch.update(tokens.get("record_size"))
                     if table_df.empty:
@@ -293,10 +291,8 @@ def execute_configuration(config: list, parser: argparse.ArgumentParser, args: a
                 for i in tqdm(range(1), desc=f'Download file {tokens.get("data_file_name")}',
                               bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
                     table_df = cc.sql(sql_stmt).collect()
-                    # Convert dataframe to parquet
-                    table = pa.Table.from_pandas(replace_invalid_values(config_line, table_df))
-                    # Write file data
-                    write_parquet_table(table, args.download_mode, tokens.get("data_file_name"), args.download_dir)
+                    # Convert dataframe to parquet and write file data
+                    write_parquet_table(replace_invalid_values(config_line, table_df), args.download_mode, tokens.get("data_file_name"), args.download_dir)
     finally:
         cc.close()
 
@@ -503,9 +499,11 @@ def main():
     parser.add_argument("--null_treatment", "-nt",
                         help="Text in json format or path to json file where there is a specification of each field, "
                              "tha values that represent null and a static value for replacement")
-    parser.add_argument("--download_dir", "-dd", type=str, help="Path where the data files will be downloaded")
-    parser.add_argument("--download_mode", "-dm", choices=["local", "GCP_cloud_storage"],
-                        help="File system or bucket where the files will be written")
+    parser.add_argument("--download_dir", "-dd", type=str, help="Path where the data files will be downloaded. "
+                            "For a Google Cloud Storage bucket specify the path as gs://bucket/path/ and for a "
+                            "AWS S3 bucket specify the path as s3://bucket/path")
+    parser.add_argument("--download_mode", "-dm", choices=["local","GCS","S3"],
+                        help="File system or cloud blob storage (data lake) where the files will be written")
     parser.add_argument("--query", "-q", type=str, help="The ability to send a custom query")
 
     args = parser.parse_args()
