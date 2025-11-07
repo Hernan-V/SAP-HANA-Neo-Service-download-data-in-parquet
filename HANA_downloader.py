@@ -230,6 +230,8 @@ def replace_invalid_values(config_line: dict, table_df: pd.DataFrame) -> pd.Data
 def write_parquet_table(table_df: pd.DataFrame, download_mode: str, data_file_name: str, download_dir: str):
     """Write data to a Parquet file.
 
+    Converts timestamp columns from nanoseconds to microseconds for BigQuery compatibility.
+
     Args:
         table_df: A Pandas DataFrame containing the data to process.
         download_mode: A string representing the download mode (e.g., 'local', 's3', etc.).
@@ -242,7 +244,28 @@ def write_parquet_table(table_df: pd.DataFrame, download_mode: str, data_file_na
     file_name = f'{data_file_name}_{datetime.now().strftime("%Y%m%d%H%M%S%f")}.parquet.snappy'
     if download_mode in ["local","GCS","S3"]:
         file_path = os.path.join(download_dir, file_name)
-        table_df.to_parquet(file_path, compression="snappy")
+
+        # Convert DataFrame to PyArrow Table with timestamp columns in microseconds
+        arrow_table = pa.Table.from_pandas(table_df)
+
+        # Build a new schema with timestamp columns converted to microsecond resolution
+        new_fields = []
+        for field in arrow_table.schema:
+            if pa.types.is_timestamp(field.type):
+                # Convert timestamp to microsecond resolution for BigQuery compatibility
+                new_field = pa.field(field.name, pa.timestamp('us', tz=field.type.tz), nullable=field.nullable)
+                new_fields.append(new_field)
+            else:
+                new_fields.append(field)
+
+        new_schema = pa.schema(new_fields)
+
+        # Cast the table to the new schema if there are any timestamp columns
+        if any(pa.types.is_timestamp(field.type) for field in arrow_table.schema):
+            arrow_table = arrow_table.cast(new_schema)
+
+        # Write the Arrow table to Parquet with snappy compression
+        pq.write_table(arrow_table, file_path, compression="snappy")
 
 
 def execute_configuration(config: list, parser: argparse.ArgumentParser, args: argparse.Namespace):
